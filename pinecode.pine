@@ -1,0 +1,89 @@
+//@version=5
+indicator("Sector_SloSto", overlay=false)
+
+over_bought = input.int(80, title="Overbought Level")
+over_sold = input.int(20, title="Oversold Level")
+KPeriod = input.int(21, title="K Period")
+DPeriod = input.int(3, title="D Period")
+smoothK = input.int(3, title="Smooth K")
+K2Period = input.int(21, title="K2 Period")
+D2Period = input.int(3, title="D2 Period")
+smoothK2 = input.int(1, title="Smooth K2")
+showSignals = input.string("Both", title="Show Signals", options=["SlowK", "SlowD", "Both"])
+upperMidLine = input.int(55, title="Upper Midline")
+lowerMidLine = input.int(45, title="Lower Midline")
+showMidLine = input.bool(true, title="Show Midline")
+
+priceH = high
+priceL = low
+priceC = close
+
+ma_with_type(src, length, type) =>
+    float ma = na
+    if type == "SMA"
+        ma := ta.sma(src, length)
+    else if type == "EMA"
+        ma := ta.ema(src, length)
+    else if type == "WMA"
+        ma := ta.wma(src, length)
+    else if type == "HMA"
+        ma := ta.hma(src, length)
+    else if type == "RMA"
+        ma := ta.rma(src, length)
+    ma
+
+averageType  = input.string(title="MA Type", defval="EMA", options=["SMA", "EMA", "WMA", "HMA", "RMA"])
+//ma = ma_with_type(close, ma_length, averageType)
+
+//lookback_period = input(14, minval=1), m1 = input(3, minval=1), m2 = input(3, minval=1)
+
+K = ma_with_type(ta.stoch(close, high, low, KPeriod), smoothK, averageType)
+plot(K, title = "K", color = DPeriod != smoothK ? color.blue : na, linewidth = 3)
+
+D = ma_with_type(K, DPeriod, averageType)
+
+
+K2 = ma_with_type(ta.stoch(close, high, low, K2Period), smoothK2, averageType)
+D2 = ma_with_type(K2, D2Period, averageType)
+
+
+hline(over_bought, "Overbought", color=color.red)
+hline(over_sold, "Oversold", color=color.green)
+
+upperMidHLine = hline(upperMidLine, "Upper Midline", color = showMidLine ? color.gray : na)
+lowermidHLine = hline(lowerMidLine, "Lower Midline", color = showMidLine ? color.gray : na)
+fill(upperMidHLine, lowermidHLine, color=color.new(color.orange, 80))
+
+// Signals
+trendUp = K > over_bought
+trendDown = K < over_sold
+
+trendUpCol = color.lime
+trendDnCol = color.orange
+
+plot(D, title = "D", color = D[0] > D[1] ? trendUpCol : D[0] < D[1] ? trendDnCol : na)
+plot(D2, title = "D2", color = D2[0] > D2[1] ? trendUpCol : D2[0] < D2[1] ? trendDnCol : na)
+
+sellCrossK = ta.crossunder(K, D) and trendUp
+buyCrossK = ta.crossover(K, D) and trendDown
+
+sellCrossD = ta.crossunder(D, K) and trendUp
+buyCrossD = ta.crossover(D, K) and trendDown
+
+var float overSoldSignalK = na
+var float overBoughtSignalK = na
+var float overSoldSignalD = na
+var float overBoughtSignalD = na
+
+if showSignals == "SlowK" or showSignals == "Both"
+    overSoldSignalK := buyCrossK ? D2[1] : na
+    overBoughtSignalK := sellCrossK ? D2[1] : na
+
+if showSignals == "SlowD" or showSignals == "Both"
+    overSoldSignalD := buyCrossD ? K2[1] : na
+    overBoughtSignalD := sellCrossD ? K2[1] : na
+
+plotshape(overSoldSignalK, style=shape.triangleup, location=location.bottom, color=color.green)
+plotshape(overBoughtSignalK, style=shape.triangledown, location=location.top, color=color.red)
+plotshape(overSoldSignalD, style=shape.triangleup, location=location.bottom, color=color.blue)
+plotshape(overBoughtSignalD, style=shape.triangledown, location=location.top, color=color.yellow)
